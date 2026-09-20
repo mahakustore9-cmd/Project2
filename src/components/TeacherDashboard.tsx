@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Student, UserAccount, TransitLog, ALL_CLASSES, StudentClass, TransitStage } from '../types';
+import { StudentPhoto } from '../services/studentPhotoStorage';
 import { GraduationCap, QrCode, Search, CheckCircle2, Clock, Users, ShieldAlert, Sparkles } from 'lucide-react';
 
 interface TeacherDashboardProps {
@@ -187,10 +188,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   {/* Photo & Name */}
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={student.photoUrl}
+                      <StudentPhoto
+                        photoUrl={student.photoUrl}
                         alt={student.fullName}
-                        className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs"
+                        className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs bg-slate-100"
                       />
                       <div>
                         <p className="font-bold text-slate-900">{student.fullName}</p>

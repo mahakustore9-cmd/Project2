@@ -3,6 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import confetti from 'canvas-confetti';
 import { Student, TransitStage, UserAccount } from '../types';
 import { playSuperTuneChime } from '../services/audio';
+import { StudentPhoto } from '../services/studentPhotoStorage';
 import { X, Camera, CheckCircle2, AlertCircle, Scan, Sparkles, User, RefreshCw, ShieldCheck, Lock } from 'lucide-react';
 
 interface QRScannerModalProps {
@@ -191,10 +192,10 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
             </p>
 
             <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3 text-left">
-              <img
-                src={scannedStudent.photoUrl}
+              <StudentPhoto
+                photoUrl={scannedStudent.photoUrl}
                 alt={scannedStudent.fullName}
-                className="w-14 h-14 object-cover rounded-xl border border-slate-300"
+                className="w-14 h-14 object-cover rounded-xl border border-slate-300 bg-slate-100"
               />
               <div>
                 <h5 className="font-bold text-slate-900">{scannedStudent.fullName}</h5>
@@ -272,10 +273,10 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
                       className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition text-left group"
                     >
                       <div className="flex items-center gap-2">
-                        <img
-                          src={stu.photoUrl}
+                        <StudentPhoto
+                          photoUrl={stu.photoUrl}
                           alt={stu.fullName}
-                          className="w-8 h-8 rounded-lg object-cover border border-slate-200"
+                          className="w-8 h-8 rounded-lg object-cover border border-slate-200 bg-slate-100"
                         />
                         <div>
                           <p className="text-xs font-bold text-slate-800 group-hover:text-blue-700">{stu.fullName}</p>

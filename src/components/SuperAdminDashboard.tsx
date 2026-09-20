@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { School, UserAccount, Student, TransitLog, StudentDailyMatrixRow } from '../types';
 import { repository } from '../services/supabase';
+import { StudentPhotoMigrationPanel } from './StudentPhotoMigrationPanel';
+import { isStoragePath, StudentPhoto } from '../services/studentPhotoStorage';
 import {
   Crown,
   Building2,
@@ -615,40 +617,72 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
           {/* TABLE: students */}
           {activeDbTable === 'students' && (
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-              <div className="px-6 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-                <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                  Table: public.students (Master Student Registry)
-                </h4>
-                <span className="text-xs font-mono text-slate-600">{students.length} Records</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-600">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-800 font-extrabold uppercase text-[11px]">
-                    <tr>
-                      <th className="px-4 py-3">ID</th>
-                      <th className="px-4 py-3">Full Name</th>
-                      <th className="px-4 py-3">Class</th>
-                      <th className="px-4 py-3">Roll No</th>
-                      <th className="px-4 py-3">Parent Name</th>
-                      <th className="px-4 py-3">Parent Phone</th>
-                      <th className="px-4 py-3">Parent Login ID</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {students.map((s) => (
-                      <tr key={s.id} className="hover:bg-slate-50 font-mono text-[11px]">
-                        <td className="px-4 py-2.5 text-blue-600 font-bold">{s.studentId}</td>
-                        <td className="px-4 py-2.5 font-sans font-bold text-slate-900">{s.fullName}</td>
-                        <td className="px-4 py-2.5">{s.studentClass}</td>
-                        <td className="px-4 py-2.5">{s.rollNumber}</td>
-                        <td className="px-4 py-2.5 font-sans">{s.parentName}</td>
-                        <td className="px-4 py-2.5">{s.parentPhone}</td>
-                        <td className="px-4 py-2.5 text-purple-700 font-bold">{s.parentLoginId}</td>
+            <div className="space-y-4">
+              <StudentPhotoMigrationPanel students={students} onRefreshStudents={onRefreshData} />
+
+              <div className="rounded-2xl bg-white border border-slate-200 shadow-xs overflow-hidden">
+                <div className="px-6 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+                    Table: public.students (Master Student Registry)
+                  </h4>
+                  <span className="text-xs font-mono text-slate-600">{students.length} Records</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-800 font-extrabold uppercase text-[11px]">
+                      <tr>
+                        <th className="px-3 py-3">Photo</th>
+                        <th className="px-3 py-3">ID</th>
+                        <th className="px-4 py-3">Full Name</th>
+                        <th className="px-3 py-3">Class</th>
+                        <th className="px-3 py-3">Roll No</th>
+                        <th className="px-4 py-3">Storage Architecture (photo_url)</th>
+                        <th className="px-4 py-3">Parent Name</th>
+                        <th className="px-4 py-3">Parent Phone</th>
+                        <th className="px-4 py-3">Parent Login ID</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {students.map((s) => {
+                        const isB64 = s.photoUrl?.startsWith('data:image/');
+                        const isStorage = isStoragePath(s.photoUrl);
+                        return (
+                          <tr key={s.id} className="hover:bg-slate-50 font-mono text-[11px]">
+                            <td className="px-3 py-2">
+                              <StudentPhoto
+                                photoUrl={s.photoUrl}
+                                alt={s.fullName}
+                                className="w-8 h-8 rounded-lg object-cover border border-slate-200 bg-slate-100"
+                              />
+                            </td>
+                            <td className="px-3 py-2.5 text-blue-600 font-bold">{s.studentId}</td>
+                            <td className="px-4 py-2.5 font-sans font-bold text-slate-900">{s.fullName}</td>
+                            <td className="px-3 py-2.5">{s.studentClass}</td>
+                            <td className="px-3 py-2.5">{s.rollNumber}</td>
+                            <td className="px-4 py-2.5">
+                              {isStorage ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                                  ✓ Storage: {s.photoUrl}
+                                </span>
+                              ) : isB64 ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px]">
+                                  ⚠️ Base64 ({Math.round((s.photoUrl.length * 3) / 4096)} KB in DB)
+                                </span>
+                              ) : (
+                                <span className="text-slate-500 font-sans text-[10px] truncate max-w-xs block">
+                                  {s.photoUrl || 'No Photo'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 font-sans">{s.parentName}</td>
+                            <td className="px-4 py-2.5">{s.parentPhone}</td>
+                            <td className="px-4 py-2.5 text-purple-700 font-bold">{s.parentLoginId}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

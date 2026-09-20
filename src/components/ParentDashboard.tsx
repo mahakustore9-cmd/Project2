@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserAccount, Student, TransitLog, TransitStage } from '../types';
 import { repository } from '../services/supabase';
+import { StudentPhoto } from '../services/studentPhotoStorage';
 import {
   HeartHandshake,
   QrCode,
@@ -76,14 +77,10 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
       {/* Top Banner with Child Info */}
       <div className="rounded-3xl bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <img
-            src={student.photoUrl}
+          <StudentPhoto
+            photoUrl={student.photoUrl}
             alt={student.fullName}
             className="w-18 h-22 sm:w-20 sm:h-24 rounded-2xl object-cover border-2 border-emerald-400/60 shadow-lg bg-slate-800 shrink-0"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&q=80&w=400';
-            }}
           />
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-400/30 mb-1.5">

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Student, School, UserAccount, TransitLog, ALL_CLASSES, StudentClass, TransitStage } from '../types';
 import { compressImageToMax350KB } from '../services/imageCompression';
 import { openWhatsAppShare } from '../services/whatsapp';
+import { StudentPhoto, uploadStudentPhotoToStorage } from '../services/studentPhotoStorage';
+import { StudentPhotoMigrationPanel } from './StudentPhotoMigrationPanel';
 import {
   UserPlus,
   Search,
@@ -32,6 +34,7 @@ interface AdminDashboardProps {
   onCreateStaffUser: (user: UserAccount) => Promise<void>;
   onAddManualTransitLog: (log: TransitLog) => Promise<void>;
   onViewIDCard: (student: Student) => void;
+  onRefreshData?: () => Promise<void>;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -45,6 +48,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onCreateStaffUser,
   onAddManualTransitLog,
   onViewIDCard,
+  onRefreshData,
 }) => {
   const [activeTab, setActiveTab] = useState<'students' | 'staff' | 'manual_entry' | 'logs'>('students');
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,8 +72,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [parentLoginId, setParentLoginId] = useState('');
   const [parentPassword, setParentPassword] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
+  const [pendingPhotoBlob, setPendingPhotoBlob] = useState<Blob | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string>('');
   const [photoSizeKb, setPhotoSizeKb] = useState<number | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Staff Form Modal State
   const [showStaffModal, setShowStaffModal] = useState(false);
@@ -103,6 +110,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setParentLoginId(`parent_${newStudentId.toLowerCase().replace('-', '_')}`);
     setParentPassword('pass123');
     setPhotoUrl('https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&q=80&w=400');
+    setPendingPhotoBlob(null);
+    setPhotoPreviewUrl('');
     setPhotoSizeKb(45);
     setShowStudentModal(true);
   };
@@ -123,11 +132,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setParentLoginId(s.parentLoginId);
     setParentPassword(s.parentPassword);
     setPhotoUrl(s.photoUrl);
+    setPendingPhotoBlob(null);
+    setPhotoPreviewUrl('');
     setPhotoSizeKb(null);
     setShowStudentModal(true);
   };
 
-  // Handle Photo File Upload with Auto-compression to <= 350KB
+  // Handle Photo File Upload with Auto-compression and staged Blob for Storage
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -135,7 +146,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       setIsCompressing(true);
       const res = await compressImageToMax350KB(file);
-      setPhotoUrl(res.dataUrl);
+      setPendingPhotoBlob(res.blob);
+      setPhotoPreviewUrl(res.dataUrl);
       setPhotoSizeKb(res.sizeKb);
     } catch (err) {
       alert('Photo compression error: ' + err);
@@ -144,9 +156,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Save Student (Add or Edit)
+  // Save Student (Add or Edit) - Uploads photo to Supabase Storage first, then stores only storage path
   const handleSaveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    let finalPhotoUrl = photoUrl;
+
+    // If new photo was uploaded, save it to Supabase Storage first
+    if (pendingPhotoBlob) {
+      try {
+        setIsUploadingPhoto(true);
+        const targetStudentId = editingStudent
+          ? editingStudent.studentId
+          : `STU-2026-${String(students.length + 101)}`;
+
+        const uploadRes = await uploadStudentPhotoToStorage(targetStudentId, pendingPhotoBlob);
+        if (uploadRes.error) {
+          alert(`Photo upload to Supabase Storage failed: ${uploadRes.error}\n\nStudent record was NOT updated to prevent data corruption.`);
+          setIsUploadingPhoto(false);
+          return;
+        }
+
+        finalPhotoUrl = uploadRes.storagePath; // e.g. "students/STU-2026-101.jpg"
+      } catch (err: any) {
+        alert('Photo upload error: ' + (err.message || err));
+        setIsUploadingPhoto(false);
+        return;
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    }
 
     if (editingStudent) {
       const updated: Student = {
@@ -163,7 +202,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         emergencyContact,
         parentLoginId,
         parentPassword,
-        photoUrl,
+        photoUrl: finalPhotoUrl,
       };
       await onUpdateStudent(updated);
     } else {
@@ -184,12 +223,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         emergencyContact,
         parentLoginId,
         parentPassword,
-        photoUrl,
+        photoUrl: finalPhotoUrl,
         createdAt: new Date().toISOString(),
       };
       await onAddStudent(newStu);
     }
 
+    setPendingPhotoBlob(null);
+    setPhotoPreviewUrl('');
     setShowStudentModal(false);
   };
 
@@ -337,6 +378,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* TAB 1: STUDENT ROSTER */}
       {activeTab === 'students' && (
         <div className="space-y-4">
+          {/* Supabase Storage Optimization & Migration Panel */}
+          <StudentPhotoMigrationPanel students={students} onRefreshStudents={onRefreshData} />
+
           {/* Filters Bar */}
           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
@@ -386,14 +430,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {/* Photo & Name */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={s.photoUrl}
+                          <StudentPhoto
+                            photoUrl={s.photoUrl}
                             alt={s.fullName}
                             className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-xs bg-slate-100"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src =
-                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
-                            }}
                           />
                           <div>
                             <p className="font-bold text-slate-900 text-sm">{s.fullName}</p>
@@ -703,19 +743,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <form onSubmit={handleSaveStudent} className="p-6 overflow-y-auto space-y-4 text-xs">
-              {/* Photo Upload with <=350KB Compression Badge */}
+              {/* Photo Upload with <=350KB Compression Badge & Storage Upload */}
               <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200 flex flex-col sm:flex-row items-center gap-4">
-                <img
-                  src={photoUrl}
+                <StudentPhoto
+                  photoUrl={photoPreviewUrl || photoUrl}
                   alt="Preview"
                   className="w-20 h-24 rounded-xl object-cover border-2 border-white shadow-md bg-slate-200 shrink-0"
                 />
                 <div className="flex-1 space-y-1">
                   <label className="block text-xs font-bold text-slate-800 uppercase">
-                    Student Photo (Strict &le; 350KB Auto-Compression)
+                    Student Photo (Supabase Storage Auto-Optimization)
                   </label>
                   <p className="text-[11px] text-slate-500">
-                    Photo will be automatically resized and optimized to stay strictly under 350KB for rapid cloud storage and crisp ID card generation.
+                    Compressed to ~100–200 KB and uploaded to Supabase Storage (<code className="font-mono text-indigo-700">student-photos</code>). Only the small storage path is saved in the database.
                   </p>
                   <input
                     type="file"
@@ -723,9 +763,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onChange={handlePhotoUpload}
                     className="mt-1 block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
                   />
-                  {photoSizeKb !== null && (
+                  {isCompressing && (
+                    <span className="inline-block mt-1 text-[11px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                      Compressing image...
+                    </span>
+                  )}
+                  {isUploadingPhoto && (
+                    <span className="inline-block mt-1 text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                      Uploading to Supabase Storage bucket...
+                    </span>
+                  )}
+                  {!isCompressing && photoSizeKb !== null && (
                     <span className="inline-block mt-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                      ✓ Optimized size: {photoSizeKb} KB (&le; 350 KB constraint satisfied)
+                      ✓ Ready for Storage: {photoSizeKb} KB (&le; 250 KB optimized)
                     </span>
                   )}
                 </div>

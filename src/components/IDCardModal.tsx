@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { Student, School } from '../types';
+import { StudentPhoto } from '../services/studentPhotoStorage';
 import { X, Printer, Download, ShieldCheck, Phone, Heart, User, School as SchoolIcon } from 'lucide-react';
 
 interface IDCardModalProps {
@@ -99,14 +100,10 @@ export const IDCardModal: React.FC<IDCardModalProps> = ({ student, school, onClo
             <div className="p-4 flex flex-col items-center">
               {/* Student Photo */}
               <div className="relative mb-3">
-                <img
-                  src={student.photoUrl}
+                <StudentPhoto
+                  photoUrl={student.photoUrl}
                   alt={student.fullName}
                   className="w-24 h-28 object-cover rounded-xl border-2 border-white shadow-md bg-slate-800"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
-                  }}
                 />
                 {student.bloodGroup && (
                   <span className="absolute -bottom-2 -right-2 px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-black shadow-sm flex items-center gap-0.5">

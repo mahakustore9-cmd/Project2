@@ -5,6 +5,7 @@
  */
 
 export interface CompressionResult {
+  blob: Blob;
   dataUrl: string;
   sizeBytes: number;
   sizeKb: number;
@@ -13,7 +14,8 @@ export interface CompressionResult {
 }
 
 export async function compressImageToMax350KB(file: File): Promise<CompressionResult> {
-  const MAX_BYTES = 350 * 1024; // 358,400 bytes
+  // Target practical size: 100 - 250 KB max
+  const MAX_BYTES = 250 * 1024; // 256,000 bytes
 
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -26,7 +28,7 @@ export async function compressImageToMax350KB(file: File): Promise<CompressionRe
         let height = img.height;
 
         // Scale down if dimensions are excessively huge for an ID card
-        const MAX_DIM = 1000;
+        const MAX_DIM = 800;
         if (width > MAX_DIM || height > MAX_DIM) {
           if (width > height) {
             height = Math.round((height * MAX_DIM) / width);
@@ -47,33 +49,41 @@ export async function compressImageToMax350KB(file: File): Promise<CompressionRe
 
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Iteratively find quality that stays <= 350KB
-        let quality = 0.92;
+        // Iteratively find quality that stays within ~100-250KB
+        let quality = 0.88;
         let dataUrl = canvas.toDataURL('image/jpeg', quality);
         let byteLength = Math.round((dataUrl.length * 3) / 4);
 
-        while (byteLength > MAX_BYTES && quality > 0.2) {
-          quality -= 0.1;
+        while (byteLength > MAX_BYTES && quality > 0.3) {
+          quality -= 0.08;
           dataUrl = canvas.toDataURL('image/jpeg', quality);
           byteLength = Math.round((dataUrl.length * 3) / 4);
         }
 
-        // If still over 350KB, reduce canvas dimensions further
+        // If still over 250KB, reduce canvas dimensions slightly
         if (byteLength > MAX_BYTES) {
-          canvas.width = Math.round(width * 0.7);
-          canvas.height = Math.round(height * 0.7);
+          canvas.width = Math.round(width * 0.75);
+          canvas.height = Math.round(height * 0.75);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          dataUrl = canvas.toDataURL('image/jpeg', 0.8);
           byteLength = Math.round((dataUrl.length * 3) / 4);
         }
 
-        resolve({
-          dataUrl,
-          sizeBytes: byteLength,
-          sizeKb: Math.round(byteLength / 1024),
-          width: canvas.width,
-          height: canvas.height,
-        });
+        canvas.toBlob(
+          (blob) => {
+            const actualBlob = blob || new Blob([], { type: 'image/jpeg' });
+            resolve({
+              blob: actualBlob,
+              dataUrl,
+              sizeBytes: actualBlob.size || byteLength,
+              sizeKb: Math.round((actualBlob.size || byteLength) / 1024),
+              width: canvas.width,
+              height: canvas.height,
+            });
+          },
+          'image/jpeg',
+          quality
+        );
       };
       img.src = reader.result as string;
     };

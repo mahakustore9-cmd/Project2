@@ -427,6 +427,7 @@ export default function App() {
             onCreateStaffUser={handleCreateStaffUser}
             onAddManualTransitLog={handleAddManualTransitLog}
             onViewIDCard={(student) => setViewingIDCardStudent(student)}
+            onRefreshData={refreshAllData}
           />
         ) : currentUser.role === 'teacher' ? (
           <TeacherDashboard

@@ -199,6 +199,35 @@ VALUES (
   '+91 98444 55566'
 )
 ON CONFLICT (id) DO NOTHING;
+
+-- 11. Create Private Supabase Storage Bucket & Policies for Student Photos
+-- Target: 'student-photos' bucket storing actual image files instead of Base64 strings
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'student-photos',
+  'student-photos',
+  false,
+  1048576, -- 1MB limit per image
+  ARRAY['image/jpeg', 'image/png', 'image/webp']
+)
+ON CONFLICT (id) DO UPDATE SET public = false;
+
+DROP POLICY IF EXISTS "Allow authenticated and anon access to student-photos" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated and anon uploads to student-photos" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated and anon updates to student-photos" ON storage.objects;
+
+CREATE POLICY "Allow authenticated and anon access to student-photos"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'student-photos');
+
+CREATE POLICY "Allow authenticated and anon uploads to student-photos"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'student-photos');
+
+CREATE POLICY "Allow authenticated and anon updates to student-photos"
+ON storage.objects FOR UPDATE
+USING (bucket_id = 'student-photos')
+WITH CHECK (bucket_id = 'student-photos');
 `;
 
 // Default Seed Data
