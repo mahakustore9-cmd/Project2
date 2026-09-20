@@ -10,7 +10,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { School, Student, TransitLog, UserAccount, TransitStage, StudentClass, UserRole, StudentDailyMatrixRow } from '../types';
 
 export const SUPABASE_URL = 'https://aitlkrtkusnimlkchhye.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_publishable_g1jgAEKE7jcWlHktcGmVTQ_QovlACHb';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpdGxrcnRrdXNuaW1sa2NoaHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4Njc4MTQsImV4cCI6MjEwNTQ0MzgxNH0.VnH9nT5PQKV2cOEzGgu_X5ZXl8ci6EPTnTk20qVZZFI';
 
 let supabaseClient: SupabaseClient | null = null;
 
@@ -145,11 +145,11 @@ DROP POLICY IF EXISTS "Allow public all user_accounts" ON public.user_accounts;
 DROP POLICY IF EXISTS "Allow public all students" ON public.students;
 DROP POLICY IF EXISTS "Allow public all transit_logs" ON public.transit_logs;
 
-CREATE POLICY "SuperAdmin all access daily_matrix" ON public.student_daily_matrix FOR ALL USING (true);
-CREATE POLICY "Allow public read schools" ON public.schools FOR ALL USING (true);
-CREATE POLICY "Allow public all user_accounts" ON public.user_accounts FOR ALL USING (true);
-CREATE POLICY "Allow public all students" ON public.students FOR ALL USING (true);
-CREATE POLICY "Allow public all transit_logs" ON public.transit_logs FOR ALL USING (true);
+CREATE POLICY "SuperAdmin all access daily_matrix" ON public.student_daily_matrix FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public read schools" ON public.schools FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all user_accounts" ON public.user_accounts FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all students" ON public.students FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all transit_logs" ON public.transit_logs FOR ALL USING (true) WITH CHECK (true);
 
 -- 9. Enable Realtime safely (idempotent block)
 DO $$
@@ -439,6 +439,195 @@ const LS_USERS = 'sts_users_v1';
 const LS_STUDENTS = 'sts_students_v1';
 const LS_LOGS = 'sts_transit_logs_v1';
 
+// Bidirectional Data Transformers between TypeScript domain models and Supabase SQL snake_case tables
+export function toDbSchool(s: School) {
+  return {
+    id: s.id,
+    name: s.name,
+    code: s.code,
+    address: s.address || null,
+    phone: s.phone || null,
+    email: s.email || null,
+    logo_url: s.logoUrl || null,
+    created_at: s.createdAt || new Date().toISOString(),
+  };
+}
+
+export function fromDbSchool(r: any): School {
+  return {
+    id: r.id,
+    name: r.name,
+    code: r.code,
+    address: r.address || '',
+    phone: r.phone || '',
+    email: r.email || '',
+    logoUrl: r.logo_url || r.logoUrl,
+    createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+  };
+}
+
+export function toDbUser(u: UserAccount) {
+  return {
+    id: u.id,
+    school_id: u.schoolId,
+    username: u.username,
+    password: u.password,
+    role: u.role,
+    full_name: u.fullName,
+    phone: u.phone || null,
+    assigned_class: u.assignedClass || null,
+    student_id: u.studentId || null,
+    created_at: u.createdAt || new Date().toISOString(),
+  };
+}
+
+export function fromDbUser(r: any): UserAccount {
+  return {
+    id: r.id,
+    schoolId: r.school_id || r.schoolId || '',
+    username: r.username,
+    password: r.password,
+    role: r.role,
+    fullName: r.full_name || r.fullName || '',
+    phone: r.phone || '',
+    assignedClass: r.assigned_class || r.assignedClass,
+    studentId: r.student_id || r.studentId,
+    createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+  };
+}
+
+export function toDbStudent(s: Student) {
+  return {
+    id: s.id,
+    school_id: s.schoolId,
+    student_id: s.studentId,
+    full_name: s.fullName,
+    student_class: s.studentClass,
+    roll_number: s.rollNumber,
+    dob: s.dob || null,
+    gender: s.gender || null,
+    blood_group: s.bloodGroup || null,
+    photo_url: s.photoUrl || null,
+    address: s.address || null,
+    parent_name: s.parentName,
+    parent_phone: s.parentPhone,
+    parent_email: s.parentEmail || null,
+    parent_login_id: s.parentLoginId,
+    parent_password: s.parentPassword,
+    emergency_contact: s.emergencyContact,
+    created_at: s.createdAt || new Date().toISOString(),
+    updated_at: s.updatedAt || new Date().toISOString(),
+  };
+}
+
+export function fromDbStudent(r: any): Student {
+  return {
+    id: r.id,
+    schoolId: r.school_id || r.schoolId || '',
+    studentId: r.student_id || r.studentId,
+    fullName: r.full_name || r.fullName || '',
+    studentClass: (r.student_class || r.studentClass || 'Class 1') as StudentClass,
+    rollNumber: r.roll_number || r.rollNumber || '',
+    dob: r.dob || undefined,
+    gender: r.gender || undefined,
+    bloodGroup: r.blood_group || r.bloodGroup || undefined,
+    photoUrl: r.photo_url || r.photoUrl || undefined,
+    address: r.address || undefined,
+    parentName: r.parent_name || r.parentName || '',
+    parentPhone: r.parent_phone || r.parentPhone || '',
+    parentEmail: r.parent_email || r.parentEmail || undefined,
+    parentLoginId: r.parent_login_id || r.parentLoginId || '',
+    parentPassword: r.parent_password || r.parentPassword || '',
+    emergencyContact: r.emergency_contact || r.emergencyContact || '',
+    createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+    updatedAt: r.updated_at || r.updatedAt || new Date().toISOString(),
+  };
+}
+
+export function toDbTransitLog(l: TransitLog) {
+  return {
+    id: l.id,
+    student_id: l.studentId,
+    student_name: l.studentName,
+    student_class: l.studentClass,
+    school_id: l.schoolId,
+    stage: l.stage,
+    timestamp: l.timestamp,
+    scanned_by_role: l.scannedByRole,
+    scanned_by_name: l.scannedByName,
+    scanned_by_id: l.scannedById,
+    is_manual_entry: !!l.isManualEntry,
+    manual_notes: l.manualNotes || null,
+    location_label: l.locationLabel || null,
+  };
+}
+
+export function fromDbTransitLog(r: any): TransitLog {
+  return {
+    id: r.id,
+    studentId: r.student_id || r.studentId,
+    studentName: r.student_name || r.studentName,
+    studentClass: r.student_class || r.studentClass,
+    schoolId: r.school_id || r.schoolId,
+    stage: r.stage,
+    timestamp: r.timestamp,
+    scannedByRole: r.scanned_by_role || r.scannedByRole,
+    scannedByName: r.scanned_by_name || r.scannedByName,
+    scannedById: r.scanned_by_id || r.scannedById,
+    isManualEntry: r.is_manual_entry ?? r.isManualEntry ?? false,
+    manualNotes: r.manual_notes || r.manualNotes,
+    locationLabel: r.location_label || r.locationLabel,
+  };
+}
+
+export function toDbDailyMatrix(m: StudentDailyMatrixRow) {
+  return {
+    id: m.id,
+    date: m.date,
+    school_id: m.schoolId,
+    student_id: m.studentId,
+    student_name: m.studentName,
+    student_class: m.studentClass,
+    stage1_left_home_time: m.stage1LeftHomeTime || null,
+    stage1_left_home_by: m.stage1LeftHomeBy || null,
+    stage2_gate_in_time: m.stage2GateInTime || null,
+    stage2_gate_in_by: m.stage2GateInBy || null,
+    stage3_class_in_time: m.stage3ClassInTime || null,
+    stage3_class_in_by: m.stage3ClassInBy || null,
+    stage4_gate_out_time: m.stage4GateOutTime || null,
+    stage4_gate_out_by: m.stage4GateOutBy || null,
+    stage5_home_arrival_time: m.stage5HomeArrivalTime || null,
+    stage5_home_arrival_by: m.stage5HomeArrivalBy || null,
+    current_stage: m.currentStage,
+    status: m.status,
+    updated_at: m.updatedAt || new Date().toISOString(),
+  };
+}
+
+export function fromDbDailyMatrix(d: any): StudentDailyMatrixRow {
+  return {
+    id: d.id,
+    date: d.date,
+    schoolId: d.school_id || d.schoolId,
+    studentId: d.student_id || d.studentId,
+    studentName: d.student_name || d.studentName,
+    studentClass: d.student_class || d.studentClass,
+    stage1LeftHomeTime: d.stage1_left_home_time || d.stage1LeftHomeTime,
+    stage1LeftHomeBy: d.stage1_left_home_by || d.stage1LeftHomeBy,
+    stage2GateInTime: d.stage2_gate_in_time || d.stage2GateInTime,
+    stage2GateInBy: d.stage2_gate_in_by || d.stage2GateInBy,
+    stage3ClassInTime: d.stage3_class_in_time || d.stage3ClassInTime,
+    stage3ClassInBy: d.stage3_class_in_by || d.stage3ClassInBy,
+    stage4GateOutTime: d.stage4_gate_out_time || d.stage4GateOutTime,
+    stage4GateOutBy: d.stage4_gate_out_by || d.stage4GateOutBy,
+    stage5HomeArrivalTime: d.stage5_home_arrival_time || d.stage5HomeArrivalTime,
+    stage5HomeArrivalBy: d.stage5_home_arrival_by || d.stage5HomeArrivalBy,
+    currentStage: d.current_stage || d.currentStage,
+    status: d.status,
+    updatedAt: d.updated_at || d.updatedAt,
+  };
+}
+
 class DataRepository {
   private isSupabaseOnline = false;
 
@@ -487,9 +676,9 @@ class DataRepository {
   public async getSchools(): Promise<School[]> {
     try {
       const client = getSupabase();
-      const { data, error } = await client.from('schools').select('*');
+      const { data, error } = await client.from('schools').select('*').order('created_at', { ascending: true });
       if (!error && data && data.length > 0) {
-        return data;
+        return data.map(fromDbSchool);
       }
     } catch {
       // fallback
@@ -505,9 +694,14 @@ class DataRepository {
 
     try {
       const client = getSupabase();
-      await client.from('schools').insert(school);
-    } catch {
-      // sync on next try
+      const { error } = await client.from('schools').insert(toDbSchool(school));
+      if (error) {
+        console.error('Supabase createSchool error:', error.message, error);
+      } else {
+        console.log('✅ School created in Supabase cloud:', school.name);
+      }
+    } catch (err) {
+      console.error('Network error creating school in Supabase:', err);
     }
     return school;
   }
@@ -518,19 +712,7 @@ class DataRepository {
       const client = getSupabase();
       const { data, error } = await client.from('user_accounts').select('*');
       if (!error && data && data.length > 0) {
-        // Map snake_case columns from Supabase table to UserAccount interface
-        return data.map((row: any) => ({
-          id: row.id,
-          schoolId: row.school_id || row.schoolId || '',
-          username: row.username,
-          password: row.password,
-          role: row.role,
-          fullName: row.full_name || row.fullName || '',
-          phone: row.phone || '',
-          assignedClass: row.assigned_class || row.assignedClass,
-          studentId: row.student_id || row.studentId,
-          createdAt: row.created_at || row.createdAt || new Date().toISOString(),
-        }));
+        return data.map(fromDbUser);
       }
     } catch {
       // fallback
@@ -546,9 +728,14 @@ class DataRepository {
 
     try {
       const client = getSupabase();
-      await client.from('user_accounts').insert(user);
-    } catch {
-      // silent fallback
+      const { error } = await client.from('user_accounts').insert(toDbUser(user));
+      if (error) {
+        console.error('Supabase createUser error:', error.message, error);
+      } else {
+        console.log('✅ User created in Supabase cloud:', user.username, user.role);
+      }
+    } catch (err) {
+      console.error('Network error creating user in Supabase:', err);
     }
     return user;
   }
@@ -559,7 +746,7 @@ class DataRepository {
       const client = getSupabase();
       const { data, error } = await client.from('students').select('*').order('created_at', { ascending: false });
       if (!error && data && data.length > 0) {
-        return data;
+        return data.map(fromDbStudent);
       }
     } catch {
       // fallback
@@ -594,9 +781,14 @@ class DataRepository {
 
     try {
       const client = getSupabase();
-      await client.from('students').insert(student);
-    } catch {
-      // fallback
+      const { error } = await client.from('students').insert(toDbStudent(student));
+      if (error) {
+        console.error('Supabase createStudent error:', error.message, error);
+      } else {
+        console.log('✅ Student created in Supabase cloud:', student.fullName, student.studentId);
+      }
+    } catch (err) {
+      console.error('Network error creating student in Supabase:', err);
     }
     return student;
   }
@@ -611,9 +803,12 @@ class DataRepository {
 
     try {
       const client = getSupabase();
-      await client.from('students').update(student).eq('id', student.id);
-    } catch {
-      // fallback
+      const { error } = await client.from('students').update(toDbStudent(student)).eq('id', student.id);
+      if (error) {
+        console.error('Supabase updateStudent error:', error.message, error);
+      }
+    } catch (err) {
+      console.error('Network error updating student in Supabase:', err);
     }
     return student;
   }
@@ -625,9 +820,12 @@ class DataRepository {
 
     try {
       const client = getSupabase();
-      await client.from('students').delete().eq('id', id);
-    } catch {
-      // fallback
+      const { error } = await client.from('students').delete().eq('id', id);
+      if (error) {
+        console.error('Supabase deleteStudent error:', error.message, error);
+      }
+    } catch (err) {
+      console.error('Network error deleting student in Supabase:', err);
     }
     return true;
   }
@@ -638,7 +836,7 @@ class DataRepository {
       const client = getSupabase();
       const { data, error } = await client.from('transit_logs').select('*').order('timestamp', { ascending: false });
       if (!error && data && data.length > 0) {
-        return data;
+        return data.map(fromDbTransitLog);
       }
     } catch {
       // fallback
@@ -657,9 +855,14 @@ class DataRepository {
 
     try {
       const client = getSupabase();
-      await client.from('transit_logs').insert(log);
-    } catch {
-      // local cache
+      const { error } = await client.from('transit_logs').insert(toDbTransitLog(log));
+      if (error) {
+        console.error('❌ Supabase transit_logs insert error:', error.message, error);
+      } else {
+        console.log('🚀 Live Transit Log REACHED Supabase cloud successfully:', log.studentName, log.stage, log.timestamp);
+      }
+    } catch (err) {
+      console.error('Network error inserting transit log to Supabase:', err);
     }
     return log;
   }
@@ -727,29 +930,14 @@ class DataRepository {
 
     try {
       const client = getSupabase();
-      await client.from('student_daily_matrix').upsert({
-        id: existing.id,
-        date: existing.date,
-        school_id: existing.schoolId,
-        student_id: existing.studentId,
-        student_name: existing.studentName,
-        student_class: existing.studentClass,
-        stage1_left_home_time: existing.stage1LeftHomeTime,
-        stage1_left_home_by: existing.stage1LeftHomeBy,
-        stage2_gate_in_time: existing.stage2GateInTime,
-        stage2_gate_in_by: existing.stage2GateInBy,
-        stage3_class_in_time: existing.stage3ClassInTime,
-        stage3_class_in_by: existing.stage3ClassInBy,
-        stage4_gate_out_time: existing.stage4GateOutTime,
-        stage4_gate_out_by: existing.stage4GateOutBy,
-        stage5_home_arrival_time: existing.stage5HomeArrivalTime,
-        stage5_home_arrival_by: existing.stage5HomeArrivalBy,
-        current_stage: existing.currentStage,
-        status: existing.status,
-        updated_at: existing.updatedAt,
-      });
-    } catch {
-      // offline fallback
+      const { error } = await client.from('student_daily_matrix').upsert(toDbDailyMatrix(existing));
+      if (error) {
+        console.error('❌ Supabase student_daily_matrix upsert error:', error.message, error);
+      } else {
+        console.log('🚀 Live Student Daily Matrix row UPDATED in Supabase cloud:', existing.studentName, existing.currentStage);
+      }
+    } catch (err) {
+      console.error('Network error upserting daily matrix row to Supabase:', err);
     }
 
     return existing;
@@ -760,27 +948,7 @@ class DataRepository {
       const client = getSupabase();
       const { data, error } = await client.from('student_daily_matrix').select('*').order('date', { ascending: false });
       if (!error && data && data.length > 0) {
-        return data.map((d: any) => ({
-          id: d.id,
-          date: d.date,
-          schoolId: d.school_id || d.schoolId,
-          studentId: d.student_id || d.studentId,
-          studentName: d.student_name || d.studentName,
-          studentClass: d.student_class || d.studentClass,
-          stage1LeftHomeTime: d.stage1_left_home_time || d.stage1LeftHomeTime,
-          stage1LeftHomeBy: d.stage1_left_home_by || d.stage1LeftHomeBy,
-          stage2GateInTime: d.stage2_gate_in_time || d.stage2GateInTime,
-          stage2GateInBy: d.stage2_gate_in_by || d.stage2GateInBy,
-          stage3ClassInTime: d.stage3_class_in_time || d.stage3ClassInTime,
-          stage3ClassInBy: d.stage3_class_in_by || d.stage3ClassInBy,
-          stage4GateOutTime: d.stage4_gate_out_time || d.stage4GateOutTime,
-          stage4GateOutBy: d.stage4_gate_out_by || d.stage4GateOutBy,
-          stage5HomeArrivalTime: d.stage5_home_arrival_time || d.stage5HomeArrivalTime,
-          stage5HomeArrivalBy: d.stage5_home_arrival_by || d.stage5HomeArrivalBy,
-          currentStage: d.current_stage || d.currentStage,
-          status: d.status,
-          updatedAt: d.updated_at || d.updatedAt,
-        }));
+        return data.map(fromDbDailyMatrix);
       }
     } catch {
       // fallback
@@ -959,6 +1127,64 @@ class DataRepository {
     }
 
     return { student, matrix };
+  }
+
+  /**
+   * Sync all local data (Schools, Users, Students, Transit Logs, and Matrix) to Supabase cloud
+   */
+  public async syncAllLocalDataToSupabase(): Promise<{ success: boolean; syncedCount: number; errors: string[] }> {
+    const client = getSupabase();
+    const errors: string[] = [];
+    let syncedCount = 0;
+
+    try {
+      const localSchools = await this.getSchools();
+      for (const s of localSchools) {
+        const { error } = await client.from('schools').upsert(toDbSchool(s));
+        if (error) errors.push(`Schools (${s.name}): ${error.message}`);
+        else syncedCount++;
+      }
+
+      const localUsers = await this.getUsers();
+      for (const u of localUsers) {
+        const { error } = await client.from('user_accounts').upsert(toDbUser(u));
+        if (error) errors.push(`Users (${u.username}): ${error.message}`);
+        else syncedCount++;
+      }
+
+      const localStudents = await this.getStudents();
+      for (const st of localStudents) {
+        const { error } = await client.from('students').upsert(toDbStudent(st));
+        if (error) errors.push(`Students (${st.fullName}): ${error.message}`);
+        else syncedCount++;
+      }
+
+      const localLogs = await this.getTransitLogs();
+      for (const l of localLogs) {
+        const { error } = await client.from('transit_logs').upsert(toDbTransitLog(l));
+        if (error) errors.push(`Logs (${l.studentName}): ${error.message}`);
+        else syncedCount++;
+      }
+
+      const localMatrix = await this.getStudentDailyMatrixRows();
+      for (const m of localMatrix) {
+        const { error } = await client.from('student_daily_matrix').upsert(toDbDailyMatrix(m));
+        if (error) errors.push(`Matrix (${m.studentName} ${m.date}): ${error.message}`);
+        else syncedCount++;
+      }
+
+      return {
+        success: errors.length === 0,
+        syncedCount,
+        errors,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        syncedCount,
+        errors: [err?.message || 'Network error during synchronization'],
+      };
+    }
   }
 }
 

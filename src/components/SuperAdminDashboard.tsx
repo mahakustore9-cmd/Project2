@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { School, UserAccount, Student, TransitLog, StudentDailyMatrixRow } from '../types';
+import { repository } from '../services/supabase';
 import {
   Crown,
   Building2,
@@ -21,6 +22,8 @@ import {
   Calendar,
   Clock,
   ArrowRight,
+  CloudUpload,
+  AlertCircle,
 } from 'lucide-react';
 
 interface SuperAdminDashboardProps {
@@ -48,6 +51,24 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   >('student_daily_matrix');
   const [dbSearch, setDbSearch] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [syncState, setSyncState] = useState<{
+    syncing: boolean;
+    result?: { success: boolean; syncedCount: number; errors: string[] };
+  }>({ syncing: false });
+
+  const handleSyncToCloud = async () => {
+    setSyncState({ syncing: true });
+    try {
+      const res = await repository.syncAllLocalDataToSupabase();
+      setSyncState({ syncing: false, result: res });
+      await onRefreshData();
+    } catch (e: any) {
+      setSyncState({
+        syncing: false,
+        result: { success: false, syncedCount: 0, errors: [e?.message || 'Sync failed'] },
+      });
+    }
+  };
 
   // School creation form
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -331,14 +352,59 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={handleExportCSV}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition shrink-0"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export Table to CSV
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={handleSyncToCloud}
+                disabled={syncState.syncing}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition"
+              >
+                <CloudUpload className={`w-3.5 h-3.5 ${syncState.syncing ? 'animate-bounce' : ''}`} />
+                {syncState.syncing ? 'Syncing to Cloud...' : 'Sync All to Supabase Cloud'}
+              </button>
+
+              <button
+                onClick={handleExportCSV}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition shrink-0"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export Table to CSV
+              </button>
+            </div>
           </div>
+
+          {syncState.result && (
+            <div
+              className={`p-3 rounded-xl text-xs flex items-center justify-between gap-2 border ${
+                syncState.result.success
+                  ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                  : 'bg-rose-50 text-rose-900 border-rose-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {syncState.result.success ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                )}
+                <span>
+                  {syncState.result.success
+                    ? `Successfully synchronized ${syncState.result.syncedCount} records across all 5 tables to Supabase Cloud!`
+                    : `Sync completed with warnings (${syncState.result.syncedCount} records synced).`}
+                  {syncState.result.errors.length > 0 && (
+                    <span className="block font-mono text-[11px] mt-0.5 text-rose-700">
+                      {syncState.result.errors.slice(0, 2).join(' | ')}
+                    </span>
+                  )}
+                </span>
+              </div>
+              <button
+                onClick={() => setSyncState({ syncing: false })}
+                className="text-[11px] font-bold px-2 py-0.5 rounded-md hover:bg-black/5"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           {/* Table Selector & Search Toolbar */}
           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
