@@ -1,0 +1,6 @@
+{
+  "name": "Student Tracking System",
+  "description": "Real-time 5-stage QR student transit safety matrix with voice notifications, ID card generator, role-based dashboards, and Supabase cloud persistence.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

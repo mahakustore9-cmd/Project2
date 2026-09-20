@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="128" fill="#1e3a8a"/>
+  <circle cx="256" cy="256" r="220" fill="url(#grad)" opacity="0.15"/>
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <!-- Shield outline -->
+  <path d="M256 96L384 144V264C384 344 329 416 256 448C183 416 128 344 128 264V144L256 96Z" fill="#2563eb" stroke="#60a5fa" stroke-width="12" stroke-linejoin="round"/>
+  <!-- Graduation cap inside shield -->
+  <path d="M256 180L336 216L256 252L176 216L256 180Z" fill="#ffffff"/>
+  <path d="M200 236V280C200 295 225 308 256 308C287 308 312 295 312 280V236" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+  <path d="M336 216V276" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="336" cy="282" r="7" fill="#fbbf24"/>
+  <!-- Verification checkmark -->
+  <circle cx="256" cy="356" r="32" fill="#10b981"/>
+  <path d="M244 356L252 364L268 348" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
