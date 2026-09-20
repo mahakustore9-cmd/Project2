@@ -82,22 +82,8 @@ CREATE TABLE IF NOT EXISTS public.students (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Create Transit Logs Table (5-Stage Transit Matrix)
-CREATE TABLE IF NOT EXISTS public.transit_logs (
-  id TEXT PRIMARY KEY,
-  student_id TEXT NOT NULL,
-  student_name TEXT NOT NULL,
-  student_class TEXT NOT NULL,
-  school_id TEXT NOT NULL,
-  stage TEXT NOT NULL CHECK (stage IN ('LEFT_HOME', 'REACHED_SCHOOL_GATE', 'ENTERED_CLASS', 'EXIT_SCHOOL_GATE', 'REACHED_HOME')),
-  timestamp TIMESTAMPTZ DEFAULT NOW(),
-  scanned_by_role TEXT NOT NULL,
-  scanned_by_name TEXT NOT NULL,
-  scanned_by_id TEXT NOT NULL,
-  is_manual_entry BOOLEAN DEFAULT FALSE,
-  manual_notes TEXT,
-  location_label TEXT
-);
+-- 4. Drop Transit Logs Table (Transit logs removed per client mandate; exactly 1 row per student per day in student_daily_matrix)
+DROP TABLE IF EXISTS public.transit_logs CASCADE;
 
 -- 5. Create Student Daily Matrix (Strict 1-Row-Per-Student Per-Day Matrix)
 -- Rule: 1 student ka perday 1 single row banti hai, aur har stage scan par usi row me update hota hai
@@ -125,7 +111,6 @@ CREATE TABLE IF NOT EXISTS public.student_daily_matrix (
 );
 
 -- 6. Create Indices for ultra-fast queries
-CREATE INDEX IF NOT EXISTS idx_transit_student_date ON public.transit_logs(student_id, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_daily_matrix_date ON public.student_daily_matrix(date, student_id);
 CREATE INDEX IF NOT EXISTS idx_students_class ON public.students(school_id, student_class);
 CREATE INDEX IF NOT EXISTS idx_users_username ON public.user_accounts(username);
@@ -134,7 +119,6 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON public.user_accounts(username);
 ALTER TABLE public.schools ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.transit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.student_daily_matrix ENABLE ROW LEVEL SECURITY;
 
 -- 8. Policies - Idempotent Security Policies (Safe for re-running)
@@ -149,16 +133,10 @@ CREATE POLICY "SuperAdmin all access daily_matrix" ON public.student_daily_matri
 CREATE POLICY "Allow public read schools" ON public.schools FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all user_accounts" ON public.user_accounts FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all students" ON public.students FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public all transit_logs" ON public.transit_logs FOR ALL USING (true) WITH CHECK (true);
 
 -- 9. Enable Realtime safely (idempotent block)
 DO $$
 BEGIN
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.transit_logs;
-  EXCEPTION WHEN duplicate_object THEN
-    NULL;
-  END;
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.student_daily_matrix;
   EXCEPTION WHEN duplicate_object THEN
@@ -846,30 +824,21 @@ class DataRepository {
   }
 
   public async addTransitLog(log: TransitLog): Promise<TransitLog> {
+    // 1. Update the strict 1-row-per-student per-day matrix table & check duplicate scans
+    await this.upsertDailyMatrixRow(log);
+
+    // 2. Keep in local event history
     const logs = await this.getTransitLogs();
     logs.unshift(log);
     localStorage.setItem(LS_LOGS, JSON.stringify(logs));
 
-    // Update the strict 1-row-per-student per-day matrix table
-    await this.upsertDailyMatrixRow(log);
-
-    try {
-      const client = getSupabase();
-      const { error } = await client.from('transit_logs').insert(toDbTransitLog(log));
-      if (error) {
-        console.error('❌ Supabase transit_logs insert error:', error.message, error);
-      } else {
-        console.log('🚀 Live Transit Log REACHED Supabase cloud successfully:', log.studentName, log.stage, log.timestamp);
-      }
-    } catch (err) {
-      console.error('Network error inserting transit log to Supabase:', err);
-    }
     return log;
   }
 
   /**
    * UPSERT strictly 1 row per student per day matrix
    * Ensures 1 student has exactly 1 row in student_daily_matrix per day!
+   * Enforces rule: 1 student ka din me kebal 1 baar hi scan ho
    */
   public async upsertDailyMatrixRow(log: TransitLog): Promise<StudentDailyMatrixRow> {
     const dateStr = log.timestamp.split('T')[0];
@@ -882,6 +851,25 @@ class DataRepository {
 
     const rows = await this.getStudentDailyMatrixRows();
     let existing = rows.find(r => r.studentId === log.studentId && r.date === dateStr);
+
+    // Duplicate Check: 1 student ka din me kebal 1 baar hi scan ho (manual admin override allowed)
+    if (existing && !log.isManualEntry) {
+      if (log.stage === 'LEFT_HOME' && existing.stage1LeftHomeTime) {
+        throw new Error(`${log.studentName} ka Stage 1 (Left Home) aaj already (${existing.stage1LeftHomeTime}) par scan ho chuka hai! Ek student ka din me kebal 1 baar hi scan allow hai.`);
+      }
+      if (log.stage === 'REACHED_SCHOOL_GATE' && existing.stage2GateInTime) {
+        throw new Error(`${log.studentName} ka Stage 2 (Gate In) aaj already (${existing.stage2GateInTime}) par scan ho chuka hai! Ek student ka din me kebal 1 baar hi scan allow hai.`);
+      }
+      if (log.stage === 'ENTERED_CLASS' && existing.stage3ClassInTime) {
+        throw new Error(`${log.studentName} ka Stage 3 (Class In) aaj already (${existing.stage3ClassInTime}) par scan ho chuka hai! Ek student ka din me kebal 1 baar hi scan allow hai.`);
+      }
+      if (log.stage === 'EXIT_SCHOOL_GATE' && existing.stage4GateOutTime) {
+        throw new Error(`${log.studentName} ka Stage 4 (Gate Out) aaj already (${existing.stage4GateOutTime}) par scan ho chuka hai! Ek student ka din me kebal 1 baar hi scan allow hai.`);
+      }
+      if (log.stage === 'REACHED_HOME' && existing.stage5HomeArrivalTime) {
+        throw new Error(`${log.studentName} ka Stage 5 (Home Reached) aaj already (${existing.stage5HomeArrivalTime}) par scan ho chuka hai! Ek student ka din me kebal 1 baar hi scan allow hai.`);
+      }
+    }
 
     let status: StudentDailyMatrixRow['status'] = 'PENDING';
     if (log.stage === 'LEFT_HOME') status = 'IN_TRANSIT_TO_SCHOOL';
@@ -1006,11 +994,10 @@ class DataRepository {
     rowCount: number;
     rows: any[];
   }[]> {
-    const [schools, users, students, logs, dailyMatrix] = await Promise.all([
+    const [schools, users, students, dailyMatrix] = await Promise.all([
       this.getSchools(),
       this.getUsers(),
       this.getStudents(),
-      this.getTransitLogs(),
       this.getStudentDailyMatrixRows(),
     ]);
 
@@ -1020,12 +1007,6 @@ class DataRepository {
         description: 'Exact 1 row per student per day matrix tracking table',
         rowCount: dailyMatrix.length,
         rows: dailyMatrix,
-      },
-      {
-        table: 'transit_logs',
-        description: 'Append-only raw camera and manual QR transit event audit trail',
-        rowCount: logs.length,
-        rows: logs,
       },
       {
         table: 'students',
@@ -1156,13 +1137,6 @@ class DataRepository {
       for (const st of localStudents) {
         const { error } = await client.from('students').upsert(toDbStudent(st));
         if (error) errors.push(`Students (${st.fullName}): ${error.message}`);
-        else syncedCount++;
-      }
-
-      const localLogs = await this.getTransitLogs();
-      for (const l of localLogs) {
-        const { error } = await client.from('transit_logs').upsert(toDbTransitLog(l));
-        if (error) errors.push(`Logs (${l.studentName}): ${error.message}`);
         else syncedCount++;
       }
 

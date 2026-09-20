@@ -47,7 +47,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 }) => {
   const [activeMainTab, setActiveMainTab] = useState<'overview' | 'database'>('overview');
   const [activeDbTable, setActiveDbTable] = useState<
-    'student_daily_matrix' | 'transit_logs' | 'students' | 'user_accounts' | 'schools'
+    'student_daily_matrix' | 'students' | 'user_accounts' | 'schools'
   >('student_daily_matrix');
   const [dbSearch, setDbSearch] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -136,15 +136,20 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       dailyMatrixRows.forEach((r) => {
         csvContent += `"${r.id}","${r.date}","${r.studentId}","${r.studentName}","${r.studentClass}","${r.stage1LeftHomeTime || ''}","${r.stage2GateInTime || ''}","${r.stage3ClassInTime || ''}","${r.stage4GateOutTime || ''}","${r.stage5HomeArrivalTime || ''}","${r.status}","${r.updatedAt}"\n`;
       });
-    } else if (activeDbTable === 'transit_logs') {
-      csvContent += 'ID,Student_ID,Student_Name,Class,Stage,Timestamp,Scanned_By_Role,Scanned_By_Name\n';
-      transitLogs.forEach((l) => {
-        csvContent += `"${l.id}","${l.studentId}","${l.studentName}","${l.studentClass}","${l.stage}","${l.timestamp}","${l.scannedByRole}","${l.scannedByName}"\n`;
-      });
     } else if (activeDbTable === 'students') {
       csvContent += 'ID,Student_ID,Full_Name,Class,Roll,Parent_Name,Parent_Phone,Emergency\n';
       students.forEach((s) => {
         csvContent += `"${s.id}","${s.studentId}","${s.fullName}","${s.studentClass}","${s.rollNumber}","${s.parentName}","${s.parentPhone}","${s.emergencyContact}"\n`;
+      });
+    } else if (activeDbTable === 'user_accounts') {
+      csvContent += 'ID,Username,Full_Name,Role,School_ID\n';
+      users.forEach((u) => {
+        csvContent += `"${u.id}","${u.username}","${u.fullName}","${u.role}","${u.schoolId}"\n`;
+      });
+    } else if (activeDbTable === 'schools') {
+      csvContent += 'ID,Name,Code,Address,Phone,Email\n';
+      schools.forEach((sc) => {
+        csvContent += `"${sc.id}","${sc.name}","${sc.code}","${sc.address}","${sc.phone}","${sc.email}"\n`;
       });
     }
 
@@ -426,21 +431,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               </button>
 
               <button
-                onClick={() => setActiveDbTable('transit_logs')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeDbTable === 'transit_logs'
-                    ? 'bg-purple-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <Table className="w-3.5 h-3.5" />
-                <span>transit_logs</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-purple-800/50">
-                  {transitLogs.length}
-                </span>
-              </button>
-
-              <button
                 onClick={() => setActiveDbTable('students')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                   activeDbTable === 'students'
@@ -615,44 +605,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                             second: '2-digit',
                           })}
                         </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* TABLE: transit_logs */}
-          {activeDbTable === 'transit_logs' && (
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-              <div className="px-6 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-                <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                  Table: public.transit_logs (Raw Append-Only Camera Scans)
-                </h4>
-                <span className="text-xs font-mono text-slate-600">{transitLogs.length} Records</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-600">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-800 font-extrabold uppercase text-[11px]">
-                    <tr>
-                      <th className="px-4 py-3">Timestamp</th>
-                      <th className="px-4 py-3">Student Name</th>
-                      <th className="px-4 py-3">Class</th>
-                      <th className="px-4 py-3">Transit Stage</th>
-                      <th className="px-4 py-3">Scanned By</th>
-                      <th className="px-4 py-3">Role</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                    {transitLogs.slice(0, 50).map((l) => (
-                      <tr key={l.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-2.5 text-slate-500">{new Date(l.timestamp).toLocaleString('en-IN')}</td>
-                        <td className="px-4 py-2.5 font-bold text-slate-900">{l.studentName}</td>
-                        <td className="px-4 py-2.5">{l.studentClass}</td>
-                        <td className="px-4 py-2.5 font-bold text-purple-700">{l.stage}</td>
-                        <td className="px-4 py-2.5">{l.scannedByName}</td>
-                        <td className="px-4 py-2.5 uppercase text-[10px] text-slate-500">{l.scannedByRole}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -3,7 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import confetti from 'canvas-confetti';
 import { Student, TransitStage, UserAccount } from '../types';
 import { playSuperTuneChime } from '../services/audio';
-import { X, Camera, CheckCircle2, AlertCircle, Scan, Sparkles, User, RefreshCw } from 'lucide-react';
+import { X, Camera, CheckCircle2, AlertCircle, Scan, Sparkles, User, RefreshCw, ShieldCheck, Lock } from 'lucide-react';
 
 interface QRScannerModalProps {
   currentStage: TransitStage;
@@ -131,20 +131,28 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
       return;
     }
 
-    // Success!
-    setScannedStudent(matched);
-    confetti({
-      particleCount: 70,
-      spread: 60,
-      origin: { y: 0.6 },
-    });
-    playSuperTuneChime();
-
-    await onScanSuccess(matched, currentStage);
-    setIsProcessing(false);
+    try {
+      await onScanSuccess(matched, currentStage);
+      // Success!
+      setScannedStudent(matched);
+      confetti({
+        particleCount: 70,
+        spread: 60,
+        origin: { y: 0.6 },
+      });
+      playSuperTuneChime();
+    } catch (err: any) {
+      setCameraError(err.message || 'Scan error occurred');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleManualSelect = (student: Student) => {
+    if (currentUser.role !== 'admin' && currentUser.role !== 'super_admin') {
+      setCameraError('Manual entry restricted to School Admin only. Parents, Guards, and Teachers must scan the physical QR code with the camera.');
+      return;
+    }
     handleDecodedPayload(student.studentId);
   };
 
@@ -242,46 +250,61 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
               </div>
             )}
 
-            {/* Quick Test / Manual Scan Selector */}
-            <div className="mt-4 pt-3 border-t border-slate-100">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                  Quick Tap-Scan (Desktop / Demo)
-                </span>
-                <span className="text-[11px] text-slate-400">
-                  {eligibleStudents.length} student{eligibleStudents.length !== 1 ? 's' : ''} eligible
-                </span>
-              </div>
+            {/* Quick Test / Manual Scan Selector - STRICTLY FOR ADMIN ONLY */}
+            {(currentUser.role === 'admin' || currentUser.role === 'super_admin') ? (
+              <div className="mt-4 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                    Admin Manual Override / Tap-Scan
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    {eligibleStudents.length} student{eligibleStudents.length !== 1 ? 's' : ''} eligible
+                  </span>
+                </div>
 
-              <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
-                {eligibleStudents.map((stu) => (
-                  <button
-                    key={stu.id}
-                    onClick={() => handleManualSelect(stu)}
-                    disabled={isProcessing}
-                    className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition text-left group"
-                  >
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={stu.photoUrl}
-                        alt={stu.fullName}
-                        className="w-8 h-8 rounded-lg object-cover border border-slate-200"
-                      />
-                      <div>
-                        <p className="text-xs font-bold text-slate-800 group-hover:text-blue-700">{stu.fullName}</p>
-                        <p className="text-[10px] text-slate-500">
-                          {stu.studentClass} • {stu.studentId}
-                        </p>
+                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                  {eligibleStudents.map((stu) => (
+                    <button
+                      key={stu.id}
+                      onClick={() => handleManualSelect(stu)}
+                      disabled={isProcessing}
+                      className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition text-left group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={stu.photoUrl}
+                          alt={stu.fullName}
+                          className="w-8 h-8 rounded-lg object-cover border border-slate-200"
+                        />
+                        <div>
+                          <p className="text-xs font-bold text-slate-800 group-hover:text-blue-700">{stu.fullName}</p>
+                          <p className="text-[10px] text-slate-500">
+                            {stu.studentClass} • {stu.studentId}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-[11px] font-semibold text-blue-600 bg-blue-100/60 px-2 py-1 rounded-md group-hover:bg-blue-600 group-hover:text-white transition">
-                      Simulate Scan →
-                    </span>
-                  </button>
-                ))}
+                      <span className="text-[11px] font-semibold text-blue-600 bg-blue-100/60 px-2 py-1 rounded-md group-hover:bg-blue-600 group-hover:text-white transition">
+                        Manual Mark →
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="mt-4 pt-3 border-t border-slate-100">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 text-slate-700">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="font-semibold">Camera QR Scan Enforced</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    Manual entry restricted to School Admin
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

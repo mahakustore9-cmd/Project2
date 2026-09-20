@@ -93,15 +93,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="hidden md:inline">Test Tune & Voice</span>
           </button>
 
-          {/* PRD & SQL Modal Button */}
-          <button
-            id="open-prd-btn"
-            onClick={onOpenPRD}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition text-xs font-semibold"
-          >
-            <FileCode2 className="w-3.5 h-3.5 text-slate-500" />
-            <span className="hidden sm:inline">PRD & SQL</span>
-          </button>
+          {/* PRD & SQL Modal Button (Restricted Strictly to Super Admin Only) */}
+          {currentUser?.role === 'super_admin' && (
+            <button
+              id="open-prd-btn"
+              onClick={onOpenPRD}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition text-xs font-semibold"
+            >
+              <FileCode2 className="w-3.5 h-3.5 text-purple-600" />
+              <span className="hidden sm:inline">PRD & SQL</span>
+            </button>
+          )}
 
           {/* In-App PWA Install Button */}
           {isInstallable && (

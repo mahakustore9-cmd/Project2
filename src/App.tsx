@@ -542,8 +542,10 @@ export default function App() {
         />
       )}
 
-      {/* PRD, System Prompt, Supabase SQL & Security Modal */}
-      {showPRDModal && <PRDAndSecurityModal onClose={() => setShowPRDModal(false)} />}
+      {/* PRD, System Prompt, Supabase SQL & Security Modal (Strictly Restricted to Super Admin) */}
+      {showPRDModal && currentUser?.role === 'super_admin' && (
+        <PRDAndSecurityModal onClose={() => setShowPRDModal(false)} />
+      )}
 
       {/* Mobile Matrix Viewer (When user taps Matrix on mobile navigation) */}
       {mobileActiveTab === 'matrix' && (
